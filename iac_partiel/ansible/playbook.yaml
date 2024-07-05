@@ -1,0 +1,106 @@
+---
+- name: Déployer l'application FastAPI
+  hosts: GCP
+
+  vars:
+    app_user: fastapi_user
+    app_dir: /opt/fastapi_app
+    virtualenv_dir: /opt/fastapi_env
+    service_name: fastapi
+
+  tasks:
+    - name: S'assurer que Python 3 est installé
+      apt:
+        name: python3
+        state: present
+        update_cache: yes
+
+    - name: S'assurer que pip est installé
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Installer virtualenv
+      pip:
+        name: virtualenv
+        state: present
+
+    - name: Créer un utilisateur pour l'application
+      user:
+        name: "{{ app_user }}"
+        home: "{{ app_dir }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Créer le répertoire de l'application
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Créer le répertoire du virtualenv
+      file:
+        path: "{{ virtualenv_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+
+    - name: Créer un virtualenv
+      command: virtualenv "{{ virtualenv_dir }}"
+      become_user: "{{ app_user }}"
+      environment:
+        PATH: "/usr/local/bin:/usr/bin:/bin"
+
+    - name: Copier les fichiers de l'application
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ app_dir }}/{{ item.dest }}"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+      loop:
+        - { src: 'main.py', dest: 'main.py' }
+        - { src: 'requirements.txt', dest: 'requirements.txt' }
+
+    - name: Installer les dépendances dans le virtualenv
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ virtualenv_dir }}"
+        virtualenv_command: "{{ virtualenv_dir }}/bin/python -m venv"
+      become_user: "{{ app_user }}"
+
+    - name: Créer un service systemd pour l'application
+      copy:
+        dest: /etc/systemd/system/{{ service_name }}.service
+        content: |
+          [Unit]
+          Description=FastAPI application
+          After=network.target
+
+          [Service]
+          User={{ app_user }}
+          Group={{ app_user }}
+          WorkingDirectory={{ app_dir }}
+          ExecStart={{ virtualenv_dir }}/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Recharger systemd pour prendre en compte le nouveau service
+      systemd:
+        daemon_reload: yes
+
+    - name: Activer et démarrer le service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: yes
+        state: started
+
+    - name: Vérification - La documentation est disponible sur /docs
+      uri:
+        url: http://localhost:8000/docs
+        method: GET
+      register: result
+    - debug:
+        var: result.status
