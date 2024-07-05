@@ -10,4 +10,4 @@ une adresse ip sera dédié avec le port 8000 ouvert a l'exterieur et le port 22
 Etape 3: 
 Dans le dossier iac_partiel/ansible 
 le fichier host contiendra les informations de votre vm adresse IP et clé SSH qui sont a adapté a votre utilisation. 
-le fichier playbook contiendra l'api fastpass avec tout les pré-requis demandé.
+le fichier playbook contiendra l'api fastapi avec tout les pré-requis demandé.
