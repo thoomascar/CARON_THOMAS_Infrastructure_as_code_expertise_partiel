@@ -19,7 +19,7 @@ resource "google_compute_firewall" "http_rule" {
 
   allow {
     protocol = "tcp"
-    ports    = ["80"]
+    ports    = ["8000"]
   }
 
   target_tags   = ["vm-instance-partiel"]
